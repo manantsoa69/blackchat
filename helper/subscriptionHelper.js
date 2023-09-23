@@ -16,8 +16,7 @@ const checkSubscription = async (fbid) => {
 
     if (cacheItem) {
       if (cacheItem === 'E') {
-       // await sendMessage(fbid,         
-           `
+        await sendMessage(fbid, `
 📢 Offre de Renouvellement - Détails et Paiement:
 🗓️ Durée: 1 Mois (24h/24) ⏰
 💰 Prix: 5900 Ariary
@@ -29,11 +28,9 @@ Orange Money: 032 41 969 56
 👤 Tous les comptes sont au nom de RAZAFIMANANTSOA Jean Marc.
 
 📲 Une fois le paiement effectué, veuillez nous fournir votre numéro (10 chiffres) pour la vérification.
-        `//);
+        `);
         console.log('Expired.');
-        return { 
-          Status: 'A',
-        };
+        return {};
       }
       return {
         Status: 'A',
@@ -52,17 +49,28 @@ Orange Money: 032 41 969 56
         };
       }
 
- 
-      // Update the user's record in the database to 'E' (expired)
-      await connection.query('UPDATE users SET expireDate = ? WHERE fbid = ?', ['E', fbid]);
-      // Set the cache item to 'E'
-      await redis.set(fbid, 'E');
+      const currentDate = new Date();
+      const expireDate = new Date(subscriptionItem.expireDate);
 
+      if (expireDate > currentDate) {
+        const timeToLiveInSeconds = Math.ceil((expireDate - currentDate) / 1000);
+        await redis.setex(fbid, timeToLiveInSeconds, 'A');
+        return {
+          Status: 'A',
+        };
+      } else {
+        await Promise.all([
+          connection.query('UPDATE users SET expireDate = ? WHERE fbid = ?', ['E', fbid]),
+          redis.set(fbid, 'E', 'EX', 960)
+        ]);
 
-      console.log('Expired.');
-      return {
-        Status:'A'
-      };
+        await sendMessage(fbid, `
+          📢Votre abonnement a expiré. 😢 Pour continuer à bénéficier des services de notre chatbot, nous vous encouragez à vous abonner dès maintenant. Si vous avez besoin plus de détails, n'hésitez pas à nous demander ! 💬
+        `);
+
+        console.log('Expired.');
+        return {};
+      }
     } finally {
       connection.release();
     }
