@@ -14,9 +14,9 @@ const saveSubscription = async (fbid, Status) => {
     return true;
   }
 
-  const expireSeconds = 1200; 
+  const expireSeconds = 5400; 
   try {
-    console.log('Saving subscription: 20M');
+    console.log('Saving subscription: 90M');
     const expireDateISOString = new Date(Date.now() + expireSeconds * 1000).toISOString();
     const formattedValue = `${expireDateISOString}`;
     const cacheKey = `${fbid}`;
