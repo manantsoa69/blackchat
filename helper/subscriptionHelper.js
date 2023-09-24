@@ -17,17 +17,22 @@ const checkSubscription = async (fbid) => {
     if (cacheItem) {
       if (cacheItem === 'E') {
         await sendMessage(fbid, `
-📢 Offre de Renouvellement - Détails et Paiement:
-🗓️ Durée: 1 Mois (24h/24) ⏰
-💰 Prix: 5900 Ariary
+📢 Offre de Renouvellement - Détails et Paiement :
+🗓️ Durée : 1 mois (24h/24) ⏰
+💰 Prix : 5 900 Ariary
 
-🏧 Moyens de paiement acceptés:
-Mvola: 038 82 686 00
+🗓️ Durée : 1 semaine (24h/24) ⏰
+💰 Prix : 1 500 Ariary
+
+🏧 Moyens de paiement acceptés :
+Mvola : 038 82 686 00
 Airtel Money: 033 20 449 55
-Orange Money: 032 41 969 56
+Orange Money : 032 41 969 56
+
 👤 Tous les comptes sont au nom de RAZAFIMANANTSOA Jean Marc.
 
 📲 Une fois le paiement effectué, veuillez nous fournir votre numéro (10 chiffres) pour la vérification.
+(Aza asina espace na soratra fa tonga dia ny numéro ihany)
         `);
         console.log('Expired.');
         return {};
