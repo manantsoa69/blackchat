@@ -1,6 +1,6 @@
 //routes/numberValidation.js
 const Redis = require("ioredis");
-
+const { sendMessage } = require('../helper/messengerApi');
 async function checkNumber(number, fbid) {
   const redisUrl = process.env.NUB_SAVE;
   const redisClient = new Redis(redisUrl);
@@ -15,8 +15,10 @@ async function checkNumber(number, fbid) {
 
       // Save number as the key with senderId as value1 and currentDate as value2 in Redis
       await redisClient.hset(number, "number", number, "fbid", fbid, "receivedate", currentDate);
+      await sendMessage(fbid, "Nous vous prions de bien vouloir patienter pendant que nous traitons et vérifions votre paiement. 🕐 Nous vous remercions pour votre confiance.");
+      await sendMessage(fbid, "verification encours ...")
 
-      return "Nous vous prions de bien vouloir patienter pendant que nous traitons et vérifions votre paiement. 🕐 Nous vous remercions pour votre confiance.";
+      return { };
     } else {
       return "Il y a un problème avec votre numéro. Il doit commencer par 033, 034, 038 ou 032.";
     }
