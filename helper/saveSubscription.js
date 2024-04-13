@@ -1,71 +1,70 @@
-//helper/saveSubscription.js
-const mysql = require('mysql2/promise');
 const Redis = require('ioredis');
+const { createClient } = require('@supabase/supabase-js'); // Import createClient function from supabase library
 require('dotenv').config();
 
+// Connect to the second Redis account
 const redis = new Redis(process.env.REDIS_URL);
-const pool = mysql.createPool(process.env.DATABASE_URL);
-console.log('mysql connection established!');
+console.log('Connected to Redis');
 
-const { sendMessage } = require('./messengerApi');
+const { activateSubscription } = require('../helper/activeSub');
+const { calculateExpirationDate } = require('../helper/expireDateCalculator');
 
-const saveSubscription = async (fbid, Status) => {
-  if (Status === 'A') {
-    return true;
-  }
-
-  const expireSeconds = 5400; 
+const saveSubscription = async (fbid, subscriptionStatus, numberToQuery) => {
   try {
-    console.log('Saving subscription: 90M');
-    const expireDateISOString = new Date(Date.now() + expireSeconds * 1000).toISOString();
-    const formattedValue = `${expireDateISOString}`;
-    const cacheKey = `${fbid}`;
+    if (subscriptionStatus === 'A') {
+      console.log('Subscription is already active:', subscriptionStatus);
+      return true;
+    }
 
-    // Update the item in Redis cache with expiration time and " (Free)" suffix
-    await redis.setex(cacheKey, expireSeconds, formattedValue);
-    const connection = await pool.getConnection();
+    const expireDate = calculateExpirationDate(subscriptionStatus);
+    if (!expireDate) {
+      return false;
+    }
+
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_API_KEY);
 
     try {
-      // Check if the FBID already exists in the MySQL database
-      await connection.query('INSERT INTO users (fbid, expireDate) VALUES (?, ?)', [fbid, expireDateISOString]);
-    } finally {
-      connection.release();
+      const { data, error } = await supabase
+        .from('chat_responses')
+        .update({ fbid, expireDate:expireDate }, { returning: 'minimal' })
+        .eq('fbid', fbid);
+
+      if (error) {
+        console.error('Error saving data to Supabase:', error.message);
+      } else {
+        if (data) {
+          console.log('Data saved to Supabase:', data);
+        } else {
+          console.log('Data saved to Supabase.');
+        }
+      }
+    } catch (error) {
+      console.error('Error occurred while saving data to Supabase:', error.message);
     }
 
-    // Successful save to both Redis and MySQL
-    const saved = true;
 
-    if (saved) {
-      console.log('Saved ');
+    // Update the expiration date in Redis as well
+    const cacheKey = `${fbid}`;
+    const expireDateInSeconds = Math.ceil((expireDate.getTime() - Date.now()) / 1000);
+    const formattedValue0 = ''; // Make sure formattedValue0 is appropriately set
+    const formattedValue1 = 'Chat';
+    const updatePromises = [
+      redis.multi()
+        .del(cacheKey)
+        .rpush(cacheKey, formattedValue1)
+        .rpush(cacheKey, formattedValue0)
+        .expire(cacheKey, expireDateInSeconds)
+        .exec()
+    ];
 
-
-    } else {
-      console.log('Failed to save.');
-    }
+    // Execute both updates simultaneously using Promise.all
+    await Promise.all(updatePromises);
+    await activateSubscription(fbid, subscriptionStatus, numberToQuery);
+    console.log('Subscription expiration date updated in Redis:', subscriptionStatus);
 
     return true;
   } catch (error) {
-    console.log('Error occurred while saving subscription:', error);
-
-    // If there was an error, delete the data related to the fbid from Redis
-    try {
-      await redis.del(fbid);
-      console.log('Deleted data related to fbid in Redis:', fbid);
-    } catch (deleteError) {
-      console.log('Error occurred while deleting data in Redis:', deleteError);
-    }
-
-    // If there was an error, delete the data related to the fbid from MySQL
-    const connection = await pool.getConnection();
-    try {
-      await connection.query('DELETE FROM users WHERE fbid = ?', [fbid]);
-      console.log('Deleted data related to fbid in MySQL:', fbid);
-    } catch (deleteError) {
-      console.log('Error occurred while deleting data in MySQL:', deleteError);
-    } finally {
-      connection.release();
-    }
-
+    console.error('Error occurred while updating subscription expiration date:', error);
     return false;
   }
 };

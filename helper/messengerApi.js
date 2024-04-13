@@ -1,62 +1,32 @@
-// helper/messengerApi.js
+//helper/messengerApi.js
+
 const axios = require('axios');
-const NodeCache = require('node-cache');
 require('dotenv').config();
 
-// Create a new instance of NodeCache
-const tokenCache = new NodeCache();
+const TOKEN= process.env.TOKEN;//117915544739471
+const PAGE_ID = process.env.PAGE_ID;//EAAUayGv03igBOwITTXZBRzZC5dmkBpEd2J2dUMD4AmE89dxkyPmmDsVBD7cR3zh49lsZBZC8M7QZCss5VV67W0iChtHLozatRZAdrQqPmcS3vhJfrO5zkjmfY6srhrxsmFJIY8hvn8kKADZBed7RBM5pN8D3GdzGthZCoufgIFuIl7pbNrxklpeVDKW541nLOKtj
+const TOKEN1 = process.env.TOKENA;//EAAD2FhQLtgUBOxRKSfcIBSUK2OUbtUsVJ5GafwBrZBZCMVWnIpsKiao5Q7MNBadfA3Q3SUGGYgKbyVAz5UZBLaThWTARnZBknQMG4QEZAZCNoAnipKZALar8cPW7ldOkfa45KEvN1gSLY9iOwt81D1Kfax72AGR35SZAAfbsA5bwzJXlEyPSADTlRh2srUvPhIkK
+const PAGE_ID1 = process.env.PAGE_IDA;//109636048905344
 
-// Function to get the cached token
-const getCachedToken = () => {
-  const cachedToken = tokenCache.get('TOKEN');
-  if (cachedToken) {
-    return cachedToken;
-  }
-  // If not cached, retrieve from process.env and cache it
-  const TOKEN = process.env.TOKEN;
-  tokenCache.set('TOKEN', TOKEN);
-  return TOKEN;
-};
-
-// Function to get the cached page ID
-const getCachedPageID = () => {
-  const cachedPageID = tokenCache.get('PAGE_ID');
-  if (cachedPageID) {
-    return cachedPageID;
-  }
-  // If not cached, retrieve from process.env and cache it
-  const PAGE_ID = process.env.PAGE_ID;
-  tokenCache.set('PAGE_ID', PAGE_ID);
-  return PAGE_ID;
-};
-
-// Create a single HTTP client instance and reuse it
-const apiClient = axios.create({
-  baseURL: 'https://graph.facebook.com/v11.0/',
-});
-
-// Set the access token in the client instance's defaults by calling getCachedToken()
-apiClient.defaults.params = {
-  access_token: getCachedToken(),
-};
-
+//client
 const sendMessage = async (fbid, message) => {
   try {
-    // Determine the maximum message length (you can adjust this as needed)
-    const maxMessageLength = 2100; // Example: Split messages if longer than 300 characters
+    const options = {
+      method: 'POST',
+      url: `https://graph.facebook.com/v18.0/${PAGE_ID}/messages`,
+      params: {
+        access_token: TOKEN,
+      },
+      data: {
+        recipient: { id: fbid },
+        messaging_type: 'RESPONSE',
+        message: { text: message },
+      },
+    };
 
-    if (message.length <= maxMessageLength) {
-      // Message is within the length limit, send it as is
-      await sendSingleMessage(fbid, message);
-    } else {
-      // Message is too long, split it into two parts and send separately
-      const part1 = message.substring(0, maxMessageLength);
-      const part2 = message.substring(maxMessageLength);
+    await axios(options);
 
-      await sendSingleMessage(fbid, part1);
-      await sendSingleMessage(fbid, part2);
-    }
-
+    console.log('Message sent successfully');
     return 1;
   } catch (error) {
     console.error('Error occurred while sending message:', error);
@@ -64,16 +34,34 @@ const sendMessage = async (fbid, message) => {
   }
 };
 
-const sendSingleMessage = async (fbid, message) => {
-  return apiClient.post(`${getCachedPageID()}/messages`, {
-    recipient: { id: fbid },
-    messaging_type: 'RESPONSE',
-    message: { text: message },
-  });
+//aduser
+const sendMessageA = async (senderId, message) => {
+  try {
+    const options = {
+      method: 'POST',
+      url: `https://graph.facebook.com/v18.0/${PAGE_ID1}/messages`,
+      params: {
+        access_token: TOKEN1,
+      },
+      data: {
+        recipient: { id: senderId },
+        messaging_type: 'RESPONSE',
+        message: { text: message },
+      },
+    };
+
+    await axios(options);
+
+    console.log('Message sent successfully');
+    return 1;
+  } catch (error) {
+    console.error('Error  sending message:', error);
+    return 0;
+  }
 };
 
 
 module.exports = {
   sendMessage,
+  sendMessageA
 };
-
