@@ -1,73 +1,70 @@
-//routes/fbWebhookRoute.js
 const express = require('express');
-const router = express.Router();
-const { checkSubscription } = require('../helper/subscriptionHelper');
-const { sendMessage } = require('../helper/messengerApi');
-const { chatCompletion } = require('../helper/openaiApi');
-const { checkNumber } = require('./numberValidation');
 const axios = require('axios');
-async function callChatCompletionService(prompt, fbid) {
-  try {
-    const complexionServiceUrl = 'https://reponse-5fma1s4l.b4a.run/generate-response'; 
-    
-    const response = await axios.post(
-      complexionServiceUrl,
-      { prompt, fbid },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-    return response.data; // Assuming the service responds with JSON data
-  } catch (error) {
-    console.error('Error calling chat completion service:', );
-    throw error;
-  }
-}
+const router = express.Router();
+const { getStoredNumbers, deleteDataFromRedis } = require('../redis');
+const { sendMessageA } = require('../helper/messengerApi');
+const { saveSubscription } = require('../helper/saveSubscription');
+const { activateSubscription } = require('../helper/activeSub');
 
 router.post('/', async (req, res) => {
   try {
     const { entry } = req.body;
+
     if (entry && entry.length > 0 && entry[0].messaging && entry[0].messaging.length > 0) {
-      const { sender: { id: fbid }, message } = entry[0].messaging[0];
+      const { sender: { id: senderId }, message } = entry[0].messaging[0];
+
       if (message && message.text) {
         let { text: query } = message;
-        console.log(`${fbid}`);
-        // Check if the message is a number
-        if (/^\d+$/.test(query)) {
-          const numberValidationResult = await checkNumber(query, fbid);
-          await sendMessage(fbid, numberValidationResult);
-          console.log('Number message sent:', numberValidationResult);
-          return res.sendStatus(200);
-        }
+        console.log(`Received message from senderId: ${senderId}`);
 
-        const { Status } = await checkSubscription(fbid);
-        if (Status === 'A') {
+        if (query.toLowerCase().startsWith('03')) {
+          let numberToQuery = query;
+
+          const items = await getStoredNumbers(numberToQuery);
+          console.log(`Result: ${items}`);
+
+          if (items.length === 0) {
+            await sendMessageA(senderId, 'No matching data found for the specified number.');
+          } else {
+            const firstItem = items[0];
+            const { number, fbid, receivedate } = firstItem;
+
+            // Send response message
+            let responseMessage = `Query result for number ${number}:\n`;
+            responseMessage += `FB ID: ${fbid}\n`;
+            responseMessage += `Received Date: ${receivedate}\n`;
+
+            await sendMessageA(senderId, responseMessage);
+            await sendMessageA(senderId, `sub ${fbid} 1M ${numberToQuery}`);
+            await sendMessageA(senderId, `sub ${fbid} 1W ${numberToQuery}`);
+
+            // Call the Redis delete function after data is saved
+            await deleteDataFromRedis(numberToQuery);
+          }
+        } else if (query.toLowerCase().startsWith('sub')) {
+          const [_, fbid, subscriptionStatus, paymentNumber ] = query.split(' ');
+
+   
 
           try {
-            // Call the chatCompletionService function to get the response
-            const result = await callChatCompletionService(query, fbid);
-
-              // Send the response to the user
-              await sendMessage(fbid, result.response);
-            
-          } catch (error) { 
-            const result = await callChatCompletionService(query, fbid);
-            await sendMessage(fbid, result.response);
-            console.log('chat')
+            const resut = await saveSubscription (fbid, subscriptionStatus, paymentNumber );
+            console.log(resut);
+            await sendMessageA(senderId, 'Subscribed successfully!');
+          } catch (error) {
+            console.error('Error subscribing user:', error);
+            await sendMessageA(senderId, 'Failed to subscribe.');
           }
         }
-      }      
+      }
     }
-  } catch (error) {
-    console.error('Error occurred:', error);
-  }
 
-  res.sendStatus(200);
+    res.sendStatus(200);
+  } catch (error) {
+    console.error('Error handling Facebook webhook:', error);
+    res.sendStatus(500);
+  }
 });
 
-// Handle GET requests for verification
 router.get('/', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
