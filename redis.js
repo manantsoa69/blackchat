@@ -1,5 +1,5 @@
 const Redis = require("ioredis");
-
+const dotenv = require('dotenv');
 const redisUrl = process.env.NUB_SAVE;
 const redisClient = new Redis(redisUrl);
 
