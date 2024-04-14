@@ -66,16 +66,25 @@ router.post('/', async (req, res) => {
 });
 
 router.get('/', (req, res) => {
+  console.log('Incoming GET request to /');
+  
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
+  console.log('Mode:', mode);
+  console.log('Token:', token);
+  console.log('Challenge:', challenge);
+
   if (mode === 'subscribe' && token === process.env.VERIFY_TOKEN) {
+    console.log('Subscription verified. Sending challenge...');
     res.status(200).send(challenge);
   } else {
+    console.log('Subscription verification failed. Sending 403 Forbidden...');
     res.sendStatus(403);
   }
 });
+
 
 module.exports = {
   router,
