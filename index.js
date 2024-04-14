@@ -5,7 +5,6 @@ const dotenv = require('dotenv');
 dotenv.config();
 const { getStoredNumbers } = require('./redis');
 
-const homeRoute = require('./routes/homeRoute');
 
 const webApp = express();
 const PORT = process.env.PORT || 3000;
@@ -17,21 +16,19 @@ redisClient.on('connect', () => console.log('Connected to upstash'));
 redisClient.on('error', error => console.error('Error connecting to Redis:', error));
 
 
-webApp.use(express.static(path.join(__dirname, 'public')));
+
 webApp.use(express.urlencoded({ extended: true }));
 webApp.use(express.json());
 
 
 
-// Error Handling Middleware
-webApp.use((err, req, res, next) => {
-  console.error('An error occurred:', err);
-  res.status(500).json({ error: 'Internal Server Error' });
-});
-
+// Load other routes and middlewares
 const fbWebhookRoute = require('./routes/fbWebhookRoute');
+const homeRoute = require('./routes/homeRoute');
+
 webApp.use('/facebook', fbWebhookRoute.router);
-webApp.use('/subscribe', homeRoute.router);
+webApp.use('/', homeRoute.router);
+
 
 // Query Route
 webApp.get('/query', async (req, res) => {
